@@ -1,64 +1,78 @@
--- uilib_key.lua  – 带卡密验证的 Virtual UI（完整版）
+-- uilib_key_myui.lua  – 用你的 UI 做卡密门 + 返回原版 VirtualUI
 local services = setmetatable({}, {__index = function(t, k) return game:GetService(k) end})
-
--- 1. 等待游戏加载
 repeat services.RunService.Heartbeat:Wait() until game:IsLoaded()
 
--- 2. 卡密验证遮罩
-local gui = Instance.new("ScreenGui")
-gui.Name = "VirtualKeyGate"
-if syn and syn.protect_gui then syn.protect_gui(gui) end
-gui.Parent = services.CoreGui
+-- ===== 1. 极简自建「你的 UI」库（30 行） =====
+local myUI = {}
+function myUI:CreateWindow(title)
+	local gui = Instance.new("ScreenGui", services.CoreGui)
+	gui.Name = "KeyGateUI"
+	local main = Instance.new("Frame", gui)
+	main.Size = UDim2.new(0, 260, 0, 180)
+	main.Position = UDim2.new(0.5, 0, 0.5, 0)
+	main.AnchorPoint = Vector2.new(0.5, 0.5)
+	main.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+	main.BorderSizePixel = 0
+	local ttl = Instance.new("TextLabel", main)
+	ttl.Size = UDim2.new(1, 0, 0, 30)
+	ttl.BackgroundTransparency = 1
+	ttl.Text = title
+	ttl.Font = Enum.Font.GothamBold
+	ttl.TextColor3 = Color3.white
+	ttl.TextSize = 18
+	local tab = {main = main, gui = gui}
+	function tab:AddTab() return tab end
+	function tab:AddSection()
+		local sec = {}
+		function sec:AddTextbox(placeholder, default, cb)
+			local box = Instance.new("TextBox", main)
+			box.Size = UDim2.new(0, 200, 0, 35)
+			box.Position = UDim2.new(0.5, 0, 0.35, 0)
+			box.AnchorPoint = Vector2.new(0.5, 0.5)
+			box.PlaceholderText = placeholder
+			box.Text = default or ""
+			box.ClearTextOnFocus = false
+			box.Font = Enum.Font.Gotham
+			box.TextColor3 = Color3.white
+			box.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+			local obj = {}
+			function obj:GetText() return box.Text end
+			box.FocusLost:Connect(function() cb(box.Text) end)
+			return obj
+		end
+		function sec:AddButton(text, cb)
+			local btn = Instance.new("TextButton", main)
+			btn.Size = UDim2.new(0, 80, 0, 30)
+			btn.Position = UDim2.new(0.5, 0, 0.7, 0)
+			btn.AnchorPoint = Vector2.new(0.5, 0.5)
+			btn.Text = text
+			btn.Font = Enum.Font.GothamBold
+			btn.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+			btn.TextColor3 = Color3.white
+			btn.MouseButton1Click:Connect(cb)
+		end
+		return sec
+	end
+	function tab:Destroy() gui:Destroy() end
+	return tab
+end
 
-local bg = Instance.new("Frame")
-bg.Size = UDim2.new(1, 0, 1, 0)
-bg.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-bg.BorderSizePixel = 0
-bg.Parent = gui
-
-local mid = Instance.new("Frame")
-mid.Size = UDim2.new(0, 240, 0, 140)
-mid.Position = UDim2.new(0.5, 0, 0.5, 0)
-mid.AnchorPoint = Vector2.new(0.5, 0.5)
-mid.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-mid.BorderSizePixel = 0
-mid.Parent = bg
-
-local txt = Instance.new("TextBox")
-txt.Size = UDim2.new(0, 200, 0, 35)
-txt.Position = UDim2.new(0.5, 0, 0.3, 0)
-txt.AnchorPoint = Vector2.new(0.5, 0.5)
-txt.PlaceholderText = "请输入卡密"
-txt.Text = ""
-txt.ClearTextOnFocus = false
-txt.Font = Enum.Font.Gotham
-txt.TextColor3 = Color3.white
-txt.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-txt.Parent = mid
-
-local ok = Instance.new("TextButton")
-ok.Size = UDim2.new(0, 80, 0, 30)
-ok.Position = UDim2.new(0.5, 0, 0.7, 0)
-ok.AnchorPoint = Vector2.new(0.5, 0.5)
-ok.Text = "验证"
-ok.Font = Enum.Font.GothamBold
-ok.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
-ok.TextColor3 = Color3.white
-ok.Parent = mid
-
+-- ===== 2. 用你的 UI 画验证 =====
 local passed = false
-local function check(key) return key == "123456" end -- 改这里即可
-ok.MouseButton1Click:Connect(function()
-	if check(txt.Text) then
+local win = myUI:CreateWindow("卡密验证")
+local sec = win:AddTab():AddSection()
+local input = sec:AddTextbox("请输入卡密", "", function() end)
+sec:AddButton("验证", function()
+	if input:GetText() == "123456" then   -- 改这里即可
 		passed = true
-		gui:Destroy()
+		win:Destroy()
 	end
 end)
 
--- 3. 阻塞直到通过
+-- ===== 3. 阻塞直到通过 =====
 repeat services.RunService.Heartbeat:Wait() until passed
 
--- 4. 原版 library 全文（下面开始就是你贴来的 4000 行，一字不改）
+-- ===== 4. 返回原版 VirtualUI（4000 行） =====
 local library = {}
 local ToggleUI = false
 library.currentTab = nil
@@ -152,17 +166,15 @@ function library.new(library, name, theme)
 	for _, v in next, services.CoreGui:GetChildren() do
 		if v.Name == "frosty" then v:Destroy() end
 	end
-	local MainColor, Background, zyColor, beijingColor
+	local MainColor, Background, zyColor
 	if theme == 'qing' then
 		MainColor = Color3.fromRGB(29, 45, 70)
 		Background = Color3.fromRGB(17, 31, 50)
 		zyColor = Color3.fromRGB(29, 45, 70)
-		beijingColor = Color3.fromRGB(29, 45, 70)
 	else
 		MainColor = Color3.fromRGB(20, 20, 20)
 		Background = Color3.fromRGB(25, 25, 25)
 		zyColor = Color3.fromRGB(20, 20, 20)
-		beijingColor = Color3.fromRGB(20, 20, 20)
 	end
 	local dogent = Instance.new("ScreenGui")
 	dogent.Name = "Virtual"
@@ -347,3 +359,4 @@ function library.new(library, name, theme)
 	return window
 end
 return library
+
