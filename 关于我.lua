@@ -1,1 +1,9 @@
- loadstring(game:HttpGet("https://raw.githubusercontent.com/HKJQ3/me/refs/heads/main/Protected_2233462745112743.lua", true))()
+game:GetService("StarterGui"):SetCore("SendNotification", {
+  Title = "提示",
+  Text = "请查看粘贴板",
+  Duration = 600,
+  Callback = bindable,
+  Button1 = "已更新",
+  Button2 = "请看粘贴板",
+})
+setclipboard("Q群:720043327")
